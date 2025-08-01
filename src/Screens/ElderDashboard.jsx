@@ -17,7 +17,7 @@ import {
   Plus,
 } from "lucide-react-native";
 import { moderateScale, scale, verticalScale } from "react-native-size-matters";
-import { SafeAreaView } from "react-native-safe-area-context";
+import ScreenWrapper from "../Constants/ScreenWrapper";
 
 const ElderDashboard = ({ navigation }) => {
   const [currentScreen, setCurrentScreen] = useState("home");

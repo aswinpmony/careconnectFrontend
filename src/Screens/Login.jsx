@@ -58,7 +58,6 @@ const Login = ({ navigation }) => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
   const handleLogin = async () => {
     if (!validateForm()) return;
 
@@ -72,24 +71,16 @@ const Login = ({ navigation }) => {
 
       await AsyncStorage.setItem("userID", response.data.user.id);
 
-      Alert.alert("Success", "Login successful!", [
-        {
-          text: "OK",
-          onPress: () => {
-            const id = response.data.user.id;
-            const userRole = response.data.user.role;
-            console.log("user ID:", id);
-            if (userRole === "Elder") {
-              navigation.navigate("ElderDashboard");
-            } else {
-              navigation.navigate("CaregiverDashboard");
-            }
-          },
-        },
-      ]);
-    } catch (error) {
-      console.error("Login error:", error);
+      // ✅ Direct navigation without Alert
 
+      const userRole = response.data.user.role;
+
+      if (userRole === "Elder") {
+        navigation.navigate("ElderDashboard");
+      } else {
+        navigation.navigate("CaregiverDashboard");
+      }
+    } catch (error) {
       let errorMessage = "Login failed. Please try again.";
 
       if (error.response) {

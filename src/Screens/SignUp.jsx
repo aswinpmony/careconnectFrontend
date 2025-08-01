@@ -5,10 +5,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   TextInput,
   Alert,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import {
   Heart,
@@ -27,11 +27,14 @@ import {
 import { scale, verticalScale, moderateScale } from "react-native-size-matters";
 import BASE_URL from "../Config/api";
 import ScreenWrapper from "../Constants/ScreenWrapper";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { Platform, Pressable } from "react-native";
 
 const SignUp = ({ navigation }) => {
   const [selectedRole, setSelectedRole] = useState("");
   const [selectedGender, setSelectedGender] = useState("");
   const [showGenderModal, setShowGenderModal] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -42,6 +45,8 @@ const SignUp = ({ navigation }) => {
     location: "",
     emergencyContact: "",
   });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateObj, setDateObj] = useState(new Date());
 
   const genderOptions = ["Male", "Female", "Other", "Prefer not to say"];
 
@@ -78,7 +83,6 @@ const SignUp = ({ navigation }) => {
     const formatted = formatDate(text);
     handleInputChange("dateOfBirth", formatted);
   };
-
   const validateForm = () => {
     if (!selectedRole) {
       Alert.alert("Role Required", "Please select your role to continue");
@@ -95,7 +99,7 @@ const SignUp = ({ navigation }) => {
       return false;
     }
 
-    // Email validation
+    // Email format check
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       Alert.alert("Invalid Email", "Please enter a valid email address");
@@ -140,11 +144,12 @@ const SignUp = ({ navigation }) => {
       return false;
     }
 
-    return true;
+    return true; // ✅ All validations passed
   };
-
   const handleSignUp = async () => {
     if (!validateForm()) return;
+
+    setLoading(true); // Start loading
 
     const userData = {
       ...formData,
@@ -154,25 +159,35 @@ const SignUp = ({ navigation }) => {
 
     try {
       const res = await axios.post(`${BASE_URL}/api/auth/register`, userData);
+
       if (res.status === 201 || res.data.success) {
+        // ✅ Clear form and related states
+        setFormData({
+          fullName: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+          dateOfBirth: "",
+          phoneNumber: "",
+          location: "",
+          emergencyContact: "",
+          healthIssues: "",
+        });
+        setSelectedRole("");
+        setSelectedGender("");
+
         Alert.alert("Success", "Account created successfully", [
           {
             text: "OK",
-            onPress: () => {
-              if (selectedRole === "Elder") {
-                console.log("Navigate to Elder Dashboard");
-              } else {
-                console.log("Navigate to CareGiver Setup");
-              }
-            },
           },
         ]);
       } else {
         Alert.alert("Error", "Something went wrong. Try again.");
       }
     } catch (error) {
-      console.error("Signup Error:", error.message);
       Alert.alert("Error", error.response?.data?.message || "Signup failed");
+    } finally {
+      setLoading(false); // Stop loading
     }
   };
 
@@ -328,6 +343,7 @@ const SignUp = ({ navigation }) => {
               placeholderTextColor="#9CA3AF"
               value={formData.fullName}
               onChangeText={(value) => handleInputChange("fullName", value)}
+              editable={!loading}
             />
           </View>
         </View>
@@ -344,6 +360,7 @@ const SignUp = ({ navigation }) => {
               autoCapitalize="none"
               value={formData.email}
               onChangeText={(value) => handleInputChange("email", value)}
+              editable={!loading}
             />
           </View>
         </View>
@@ -359,6 +376,7 @@ const SignUp = ({ navigation }) => {
               secureTextEntry
               value={formData.password}
               onChangeText={(value) => handleInputChange("password", value)}
+              editable={!loading}
             />
           </View>
         </View>
@@ -376,6 +394,7 @@ const SignUp = ({ navigation }) => {
               onChangeText={(value) =>
                 handleInputChange("confirmPassword", value)
               }
+              editable={!loading}
             />
           </View>
         </View>
@@ -388,6 +407,7 @@ const SignUp = ({ navigation }) => {
           >
             <User size={scale(20)} color="#6B7280" style={styles.inputIcon} />
             <Text
+              editable={!loading}
               style={[
                 styles.textInput,
                 !selectedGender && styles.placeholderText,
@@ -401,13 +421,17 @@ const SignUp = ({ navigation }) => {
 
         {/* Date of Birth */}
         <View style={styles.inputContainer}>
-          <View style={styles.inputWrapper}>
+          <Pressable
+            style={styles.inputWrapper}
+            onPress={() => !loading && setShowDatePicker(true)}
+          >
             <Calendar
               size={scale(20)}
               color="#6B7280"
               style={styles.inputIcon}
             />
             <TextInput
+              editable={!loading}
               style={styles.textInput}
               placeholder="Date of Birth (DD/MM/YYYY) *"
               placeholderTextColor="#9CA3AF"
@@ -416,7 +440,34 @@ const SignUp = ({ navigation }) => {
               keyboardType="numeric"
               maxLength={10}
             />
-          </View>
+          </Pressable>
+
+          {/* Date Picker (hidden unless open) */}
+          {showDatePicker && (
+            <DateTimePicker
+              value={dateObj}
+              mode="date"
+              display={Platform.OS === "ios" ? "spinner" : "default"}
+              maximumDate={new Date()}
+              onChange={(event, selectedDate) => {
+                setShowDatePicker(false);
+                if (selectedDate) {
+                  setDateObj(selectedDate);
+
+                  // Convert to DD/MM/YYYY
+                  const day = String(selectedDate.getDate()).padStart(2, "0");
+                  const month = String(selectedDate.getMonth() + 1).padStart(
+                    2,
+                    "0"
+                  );
+                  const year = selectedDate.getFullYear();
+                  const formattedDate = `${day}/${month}/${year}`;
+
+                  handleInputChange("dateOfBirth", formattedDate);
+                }
+              }}
+            />
+          )}
         </View>
 
         {/* Phone Number */}
@@ -424,6 +475,7 @@ const SignUp = ({ navigation }) => {
           <View style={styles.inputWrapper}>
             <Phone size={scale(20)} color="#6B7280" style={styles.inputIcon} />
             <TextInput
+              editable={!loading}
               style={styles.textInput}
               placeholder="Phone Number *"
               placeholderTextColor="#9CA3AF"
@@ -439,6 +491,7 @@ const SignUp = ({ navigation }) => {
           <View style={styles.inputWrapper}>
             <MapPin size={scale(20)} color="#6B7280" style={styles.inputIcon} />
             <TextInput
+              editable={!loading}
               style={styles.textInput}
               placeholder="Location (City/Place) *"
               placeholderTextColor="#9CA3AF"
@@ -453,6 +506,7 @@ const SignUp = ({ navigation }) => {
           <View style={styles.inputWrapper}>
             <Phone size={scale(20)} color="#6B7280" style={styles.inputIcon} />
             <TextInput
+              editable={!loading}
               style={styles.textInput}
               placeholder="Emergency Contact (Optional)"
               placeholderTextColor="#9CA3AF"
@@ -475,6 +529,7 @@ const SignUp = ({ navigation }) => {
                 style={styles.inputIcon}
               />
               <TextInput
+                editable={!loading}
                 style={[styles.textInput, styles.textArea]}
                 placeholder="Known Health Issues (e.g., BP, Sugar, Heart condition)"
                 placeholderTextColor="#9CA3AF"
@@ -510,22 +565,37 @@ const SignUp = ({ navigation }) => {
       {/* Sign Up Button */}
       <View style={styles.buttonSection}>
         <TouchableOpacity
-          style={[styles.signUpButton, !selectedRole && styles.disabledButton]}
+          style={[
+            styles.signUpButton,
+            (!selectedRole || loading) && styles.disabledButton,
+          ]}
           onPress={handleSignUp}
           activeOpacity={0.8}
-          disabled={!selectedRole}
+          disabled={!selectedRole || loading}
         >
-          <Users
-            color="white"
-            size={scale(24)}
-            style={{ marginRight: scale(12) }}
-          />
-          <Text style={styles.signUpButtonText}>Create Account</Text>
+          {loading ? (
+            <ActivityIndicator
+              size="small"
+              color="white"
+              style={{ marginRight: scale(12) }}
+            />
+          ) : (
+            <Users
+              color="white"
+              size={scale(24)}
+              style={{ marginRight: scale(12) }}
+            />
+          )}
+          <Text style={styles.signUpButtonText}>
+            {loading ? "Creating Account..." : "Create Account"}
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.loginPrompt}>
           <Text style={styles.loginPromptText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+          <TouchableOpacity
+            onPress={() => !loading && navigation.navigate("Login")}
+          >
             <Text style={styles.loginLink}>Sign In</Text>
           </TouchableOpacity>
         </View>

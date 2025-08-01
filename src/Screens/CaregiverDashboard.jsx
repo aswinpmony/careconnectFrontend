@@ -13,6 +13,7 @@ import {
 import { StyleSheet } from "react-native";
 import { scale, verticalScale, moderateScale } from "react-native-size-matters";
 import Icon from "react-native-vector-icons/MaterialIcons";
+import ScreenWrapper from "../Constants/ScreenWrapper";
 
 const CareGiverDashboard = () => {
   const [parents, setParents] = useState([]);
@@ -236,195 +237,197 @@ const CareGiverDashboard = () => {
   );
 
   return (
-    <View style={styles.container}>
-      <StatusBar backgroundColor="#2196F3" barStyle="light-content" />
+    <ScreenWrapper>
+      <View style={styles.container}>
+        <StatusBar backgroundColor="#2196F3" barStyle="light-content" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>CareGiver Dashboard</Text>
-          <Text style={styles.headerSubtitle}>Monitor your loved ones</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>CareGiver Dashboard</Text>
+            <Text style={styles.headerSubtitle}>Monitor your loved ones</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setAddParentModal(true)}
+          >
+            <Icon name="person-add" size={scale(24)} color="#fff" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setAddParentModal(true)}
+
+        <ScrollView
+          style={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         >
-          <Icon name="person-add" size={scale(24)} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Quick Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{parents.length}</Text>
-            <Text style={styles.statLabel}>Connected</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statNumber, { color: "#FF9800" }]}>
-              {parents.reduce((sum, p) => sum + p.criticalAlerts, 0)}
-            </Text>
-            <Text style={styles.statLabel}>Alerts</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statNumber, { color: "#4CAF50" }]}>
-              {parents.filter((p) => p.healthStatus === "Good").length}
-            </Text>
-            <Text style={styles.statLabel}>Healthy</Text>
-          </View>
-        </View>
-
-        {/* Pending Requests */}
-        {pendingRequests.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Pending Requests</Text>
-            {pendingRequests.map(renderPendingRequest)}
-          </View>
-        )}
-
-        {/* Connected Parents */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Parents</Text>
-          {parents.length > 0 ? (
-            parents.map(renderParentCard)
-          ) : (
-            <View style={styles.emptyState}>
-              <Icon name="family-restroom" size={scale(60)} color="#ccc" />
-              <Text style={styles.emptyStateText}>
-                No parents connected yet
+          {/* Quick Stats */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{parents.length}</Text>
+              <Text style={styles.statLabel}>Connected</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={[styles.statNumber, { color: "#FF9800" }]}>
+                {parents.reduce((sum, p) => sum + p.criticalAlerts, 0)}
               </Text>
-              <Text style={styles.emptyStateSubtext}>
-                Add your parents to start monitoring their health
+              <Text style={styles.statLabel}>Alerts</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={[styles.statNumber, { color: "#4CAF50" }]}>
+                {parents.filter((p) => p.healthStatus === "Good").length}
               </Text>
-              <TouchableOpacity
-                style={styles.emptyStateButton}
-                onPress={() => setAddParentModal(true)}
-              >
-                <Text style={styles.emptyStateButtonText}>Add Parent</Text>
-              </TouchableOpacity>
+              <Text style={styles.statLabel}>Healthy</Text>
+            </View>
+          </View>
+
+          {/* Pending Requests */}
+          {pendingRequests.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Pending Requests</Text>
+              {pendingRequests.map(renderPendingRequest)}
             </View>
           )}
-        </View>
-      </ScrollView>
 
-      {/* Add Parent Modal */}
-      <Modal
-        visible={addParentModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setAddParentModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Parent</Text>
-              <TouchableOpacity onPress={() => setAddParentModal(false)}>
-                <Icon name="close" size={scale(24)} color="#666" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Full Name *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newParent.name}
-                  onChangeText={(text) =>
-                    setNewParent({ ...newParent, name: text })
-                  }
-                  placeholder="Enter parent's full name"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Email Address *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newParent.email}
-                  onChangeText={(text) =>
-                    setNewParent({ ...newParent, email: text })
-                  }
-                  placeholder="Enter email address"
-                  keyboardType="email-address"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Phone Number *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newParent.phone}
-                  onChangeText={(text) =>
-                    setNewParent({ ...newParent, phone: text })
-                  }
-                  placeholder="Enter phone number"
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Relationship</Text>
-                <View style={styles.relationshipContainer}>
-                  {["Parent", "Mother", "Father", "Guardian", "Relative"].map(
-                    (rel) => (
-                      <TouchableOpacity
-                        key={rel}
-                        style={[
-                          styles.relationshipChip,
-                          newParent.relationship === rel &&
-                            styles.relationshipChipActive,
-                        ]}
-                        onPress={() =>
-                          setNewParent({ ...newParent, relationship: rel })
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.relationshipChipText,
-                            newParent.relationship === rel &&
-                              styles.relationshipChipTextActive,
-                          ]}
-                        >
-                          {rel}
-                        </Text>
-                      </TouchableOpacity>
-                    )
-                  )}
-                </View>
-              </View>
-
-              <View style={styles.infoBox}>
-                <Icon name="info" size={scale(16)} color="#2196F3" />
-                <Text style={styles.infoText}>
-                  A connection request will be sent to your parent. They need to
-                  accept it to start sharing health data.
+          {/* Connected Parents */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Your Parents</Text>
+            {parents.length > 0 ? (
+              parents.map(renderParentCard)
+            ) : (
+              <View style={styles.emptyState}>
+                <Icon name="family-restroom" size={scale(60)} color="#ccc" />
+                <Text style={styles.emptyStateText}>
+                  No parents connected yet
                 </Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Add your parents to start monitoring their health
+                </Text>
+                <TouchableOpacity
+                  style={styles.emptyStateButton}
+                  onPress={() => setAddParentModal(true)}
+                >
+                  <Text style={styles.emptyStateButtonText}>Add Parent</Text>
+                </TouchableOpacity>
               </View>
-            </ScrollView>
+            )}
+          </View>
+        </ScrollView>
 
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setAddParentModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.sendButton}
-                onPress={handleAddParent}
-              >
-                <Text style={styles.sendButtonText}>Send Request</Text>
-              </TouchableOpacity>
+        {/* Add Parent Modal */}
+        <Modal
+          visible={addParentModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setAddParentModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add Parent</Text>
+                <TouchableOpacity onPress={() => setAddParentModal(false)}>
+                  <Icon name="close" size={scale(24)} color="#666" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalBody}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Full Name *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newParent.name}
+                    onChangeText={(text) =>
+                      setNewParent({ ...newParent, name: text })
+                    }
+                    placeholder="Enter parent's full name"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Email Address *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newParent.email}
+                    onChangeText={(text) =>
+                      setNewParent({ ...newParent, email: text })
+                    }
+                    placeholder="Enter email address"
+                    keyboardType="email-address"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Phone Number *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newParent.phone}
+                    onChangeText={(text) =>
+                      setNewParent({ ...newParent, phone: text })
+                    }
+                    placeholder="Enter phone number"
+                    keyboardType="phone-pad"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Relationship</Text>
+                  <View style={styles.relationshipContainer}>
+                    {["Parent", "Mother", "Father", "Guardian", "Relative"].map(
+                      (rel) => (
+                        <TouchableOpacity
+                          key={rel}
+                          style={[
+                            styles.relationshipChip,
+                            newParent.relationship === rel &&
+                              styles.relationshipChipActive,
+                          ]}
+                          onPress={() =>
+                            setNewParent({ ...newParent, relationship: rel })
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.relationshipChipText,
+                              newParent.relationship === rel &&
+                                styles.relationshipChipTextActive,
+                            ]}
+                          >
+                            {rel}
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.infoBox}>
+                  <Icon name="info" size={scale(16)} color="#2196F3" />
+                  <Text style={styles.infoText}>
+                    A connection request will be sent to your parent. They need
+                    to accept it to start sharing health data.
+                  </Text>
+                </View>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setAddParentModal(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.sendButton}
+                  onPress={handleAddParent}
+                >
+                  <Text style={styles.sendButtonText}>Send Request</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </ScreenWrapper>
   );
 };
 
@@ -435,7 +438,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: "#2196F3",
-    paddingTop: verticalScale(40),
+
     paddingBottom: verticalScale(20),
     paddingHorizontal: scale(20),
     flexDirection: "row",

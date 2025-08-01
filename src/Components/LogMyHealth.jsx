@@ -70,14 +70,9 @@ const LogMyHealth = () => {
         setNotes("");
         setDate(new Date());
       } else {
-        console.error("⚠️ Unexpected status code:", res.status);
         Alert.alert("⚠️ Failed", "Something went wrong");
       }
     } catch (error) {
-      console.error(
-        "❌ Error during POST request:",
-        error?.response || error.message
-      );
       Alert.alert("❌ Error", "Could not submit health data");
     }
   };

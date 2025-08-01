@@ -135,11 +135,6 @@ const CallFamily = ({ onBack }) => {
           text: "Call",
           onPress: () => {
             // Here you would integrate with your calling service
-            console.log(
-              `${isVideo ? "Video" : "Voice"} calling ${member.name} at ${
-                member.phone
-              }`
-            );
           },
         },
       ]

@@ -8,6 +8,7 @@ import {
   Alert,
 } from "react-native";
 import { scale, verticalScale, moderateScale } from "react-native-size-matters";
+import ScreenWrapper from "../Constants/ScreenWrapper";
 
 // Sample appointment data
 const initialAppointments = [
@@ -47,7 +48,7 @@ const Appointment = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScreenWrapper>
       <Text style={styles.title}>My Appointments</Text>
 
       {appointments.map((item) => (
@@ -83,7 +84,7 @@ const Appointment = () => {
           </View>
         </View>
       ))}
-    </ScrollView>
+    </ScreenWrapper>
   );
 };
 
