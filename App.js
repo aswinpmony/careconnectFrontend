@@ -15,6 +15,14 @@ import Appointment from "./src/Components/Appointment";
 import CallFamily from "./src/Components/CallFamily";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import CareGiverDashboard from "./src/Screens/CaregiverDashboard";
+import UserSearchScreen from "./src/Screens/UserSearchScreen";
+import UserProfile from "./src/Screens/UserProfile";
+import PendingRequestsScreen from "./src/Screens/PendingRequestsScreen";
+import MyConnections from "./src/Screens/MyConnection";
+import ProfileScreen from "./src/Screens/ProfileScreen";
+import ElderHealthDetails from "./src/Screens/ElderHealthDetails";
+import Settings from "./src/Screens/Settings";
+import ChangePassword from "./src/Screens/ChangePassword";
 
 const Stack = createNativeStackNavigator();
 
@@ -67,6 +75,46 @@ export default function App() {
           <Stack.Screen
             name="CaregiverDashboard"
             component={CareGiverDashboard}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="UserSearchScreen"
+            component={UserSearchScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="UserProfile"
+            component={UserProfile}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PendingRequestsScreen"
+            component={PendingRequestsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MyConnections"
+            component={MyConnections}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MyProfile"
+            component={ProfileScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ElderHealthDetails"
+            component={ElderHealthDetails}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Settings"
+            component={Settings}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ChangePassword "
+            component={ChangePassword}
             options={{ headerShown: false }}
           />
         </Stack.Navigator>

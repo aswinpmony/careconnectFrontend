@@ -1,26 +1,33 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import {
   Heart,
   Pill,
   Calendar,
   Phone,
-  Mic,
   Check,
+  Users,
   Plus,
+  Menu,
+  User,
+  Bell,
+  UserCheck,
+  Settings,
+  X,
+  LogOut,
 } from "lucide-react-native";
 import { moderateScale, scale, verticalScale } from "react-native-size-matters";
 import ScreenWrapper from "../Constants/ScreenWrapper";
+import { CommonActions } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRoute } from "@react-navigation/native";
 
 const ElderDashboard = ({ navigation }) => {
+  const route = useRoute();
+  const { userDetails } = route.params;
   const [currentScreen, setCurrentScreen] = useState("home");
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [pendingRequests] = useState(3); // Mock pending requests count
 
   const emergencyCall = () => {
     Alert.alert(
@@ -57,12 +64,145 @@ const ElderDashboard = ({ navigation }) => {
     });
   };
 
+  const toggleDrawer = () => {
+    setIsDrawerOpen(!isDrawerOpen);
+  };
+
+  const closeDrawer = () => {
+    setIsDrawerOpen(false);
+  };
+
+  const navigateFromDrawer = (screenName, params = {}) => {
+    closeDrawer();
+    navigation.navigate(screenName, params);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem("userToken");
+      await AsyncStorage.removeItem("userDetails");
+
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        })
+      );
+    } catch (error) {
+      console.error("Error logging out:", error);
+      Alert.alert("Error", "Failed to logout. Please try again.");
+    }
+  };
+
+  const DrawerContent = () => (
+    <View style={styles.drawerContainer}>
+      <View style={styles.drawerHeader}>
+        <TouchableOpacity style={styles.closeButton} onPress={closeDrawer}>
+          <X size={moderateScale(24)} color="#666" />
+        </TouchableOpacity>
+        <View style={styles.profileSection}>
+          <View style={styles.profileAvatar}>
+            <User size={moderateScale(40)} color="#22c55e" />
+          </View>
+          <Text style={styles.profileName}>{userDetails.fullName}</Text>
+          <Text style={styles.profileRole}>{userDetails.role}</Text>
+        </View>
+      </View>
+
+      <View style={styles.drawerMenu}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigateFromDrawer("MyProfile")}
+        >
+          <User size={moderateScale(24)} color="#666" />
+          <Text style={styles.menuText}>My Profile</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            navigateFromDrawer("PendingRequestsScreen", {
+              userRole: "CareGiver",
+            })
+          }
+        >
+          <View style={styles.menuIconContainer}>
+            <Bell size={moderateScale(24)} color="#666" />
+            {pendingRequests > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{pendingRequests}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.menuText}>Pending Requests</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigateFromDrawer("MyConnections")}
+        >
+          <UserCheck size={moderateScale(24)} color="#666" />
+          <Text style={styles.menuText}>My Connections</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            navigateFromDrawer("UserSearchScreen", {
+              userRole: "CareGiver",
+            })
+          }
+        >
+          <Users size={moderateScale(24)} color="#666" />
+          <Text style={styles.menuText}>Find Caregivers</Text>
+        </TouchableOpacity>
+
+        <View style={styles.menuSeparator} />
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigateFromDrawer("Settings")}
+        >
+          <Settings size={moderateScale(24)} color="#666" />
+          <Text style={styles.menuText}>Settings</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+          <LogOut size={moderateScale(24)} color="#666" />
+          <Text style={styles.menuText}>Log Out</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   const HomeScreen = () => (
     <ScreenWrapper>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Welcome Back!</Text>
-        <Text style={styles.headerSubtitle}>Mom</Text>
-        <Text style={styles.headerDate}>Wednesday, July 30, 2025</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity style={styles.menuButton} onPress={toggleDrawer}>
+            <Menu size={moderateScale(24)} color="#fff" />
+          </TouchableOpacity>
+
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Welcome Back!</Text>
+            <Text style={styles.headerSubtitle}>{userDetails.fullName}</Text>
+            <Text style={styles.headerDate}>Wednesday, July 30, 2025</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.connectionButton}
+            onPress={() =>
+              navigation.navigate("UserSearchScreen", { userRole: "CareGiver" })
+            }
+          >
+            <View style={styles.connectionIconContainer}>
+              <Users size={moderateScale(20)} color="#22c55e" />
+              <View style={styles.plusIcon}>
+                <Plus size={moderateScale(12)} color="#fff" />
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <TouchableOpacity style={styles.emergencyButton} onPress={emergencyCall}>
@@ -160,7 +300,24 @@ const ElderDashboard = ({ navigation }) => {
     }
   };
 
-  return <View style={styles.screen}>{renderCurrentScreen()}</View>;
+  return (
+    <View style={styles.screen}>
+      {renderCurrentScreen()}
+
+      {/* Drawer Overlay */}
+      {isDrawerOpen && (
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={closeDrawer}
+        >
+          <View style={styles.drawer}>
+            <DrawerContent />
+          </View>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -177,6 +334,18 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: moderateScale(30),
     borderBottomRightRadius: moderateScale(30),
     marginBottom: verticalScale(24),
+  },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  menuButton: {
+    padding: moderateScale(8),
+    marginRight: moderateScale(12),
+  },
+  headerContent: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: moderateScale(20),
@@ -195,6 +364,147 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     marginTop: verticalScale(4),
   },
+  connectionButton: {
+    marginLeft: moderateScale(16),
+  },
+  connectionIconContainer: {
+    backgroundColor: "#fff",
+    width: moderateScale(50),
+    height: moderateScale(50),
+    borderRadius: moderateScale(25),
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  plusIcon: {
+    position: "absolute",
+    top: moderateScale(-2),
+    right: moderateScale(-2),
+    backgroundColor: "#22c55e",
+    width: moderateScale(20),
+    height: moderateScale(20),
+    borderRadius: moderateScale(10),
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+
+  // Drawer Styles
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "flex-start",
+  },
+  drawer: {
+    width: "80%",
+    height: "100%",
+    backgroundColor: "#fff",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 2,
+      height: 0,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  drawerContainer: {
+    flex: 1,
+  },
+  drawerHeader: {
+    backgroundColor: "#22c55e",
+    paddingTop: verticalScale(50),
+    paddingBottom: verticalScale(30),
+    paddingHorizontal: scale(20),
+    position: "relative",
+  },
+  closeButton: {
+    position: "absolute",
+    top: verticalScale(50),
+    right: scale(20),
+    zIndex: 1,
+  },
+  profileSection: {
+    alignItems: "center",
+    marginTop: verticalScale(10),
+  },
+  profileAvatar: {
+    backgroundColor: "#fff",
+    width: moderateScale(80),
+    height: moderateScale(80),
+    borderRadius: moderateScale(40),
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: verticalScale(12),
+  },
+  profileName: {
+    fontSize: moderateScale(24),
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: verticalScale(4),
+  },
+  profileRole: {
+    fontSize: moderateScale(16),
+    color: "#fff",
+    opacity: 0.9,
+  },
+  drawerMenu: {
+    flex: 1,
+    paddingTop: verticalScale(30),
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: verticalScale(16),
+    paddingHorizontal: scale(20),
+  },
+  menuIconContainer: {
+    position: "relative",
+  },
+  menuText: {
+    fontSize: moderateScale(18),
+    color: "#333",
+    marginLeft: scale(16),
+    fontWeight: "500",
+  },
+  badge: {
+    position: "absolute",
+    top: moderateScale(-8),
+    right: moderateScale(-8),
+    backgroundColor: "#ef4444",
+    borderRadius: moderateScale(10),
+    minWidth: moderateScale(20),
+    height: moderateScale(20),
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: moderateScale(12),
+    fontWeight: "bold",
+  },
+  menuSeparator: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginVertical: verticalScale(16),
+    marginHorizontal: scale(20),
+  },
+
+  // Existing styles remain the same
   emergencyButton: {
     backgroundColor: "#ef4444",
     padding: verticalScale(24),

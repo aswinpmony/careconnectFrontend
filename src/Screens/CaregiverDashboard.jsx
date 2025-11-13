@@ -13,75 +13,105 @@ import {
 import { StyleSheet } from "react-native";
 import { scale, verticalScale, moderateScale } from "react-native-size-matters";
 import Icon from "react-native-vector-icons/MaterialIcons";
+import { useRoute, CommonActions } from "@react-navigation/native";
+import {
+  Menu,
+  User,
+  Bell,
+  UserCheck,
+  Settings,
+  X,
+  Users,
+  LogOut,
+} from "lucide-react-native";
 import ScreenWrapper from "../Constants/ScreenWrapper";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import BASE_URL from "../Config/api";
 
-const CareGiverDashboard = () => {
+const CareGiverDashboard = ({ navigation }) => {
+  const route = useRoute();
+  const { userDetails } = route.params;
   const [parents, setParents] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [addParentModal, setAddParentModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [newParent, setNewParent] = useState({
     name: "",
     email: "",
     phone: "",
     relationship: "Parent",
   });
-
-  // Mock data - replace with actual API calls
-  const mockParents = [
-    {
-      id: "1",
-      name: "Mary Johnson",
-      relationship: "Mother",
-      lastUpdate: "2 hours ago",
-      healthStatus: "Good",
-      criticalAlerts: 0,
-      recentReadings: {
-        bp: "120/80",
-        sugar: "110",
-        cholesterol: "180",
-      },
-    },
-    {
-      id: "2",
-      name: "John Johnson",
-      relationship: "Father",
-      lastUpdate: "5 hours ago",
-      healthStatus: "Attention Needed",
-      criticalAlerts: 1,
-      recentReadings: {
-        bp: "140/90",
-        sugar: "160",
-        cholesterol: "220",
-      },
-    },
-  ];
-
-  const mockPendingRequests = [
-    {
-      id: "1",
-      name: "Robert Smith",
-      email: "robert@email.com",
-      requestDate: "2024-01-15",
-    },
-  ];
+  const [loading, setLoading] = useState(false);
+  const [loggedInUserId, setLoggedInUserId] = useState("");
 
   useEffect(() => {
-    loadData();
+    const initializeData = async () => {
+      try {
+        const userId = await AsyncStorage.getItem("userID");
+        if (userId) {
+          setLoggedInUserId(userId);
+          await Promise.all([
+            fetchConnectedElders(userId),
+            fetchPendingRequests(userId),
+          ]);
+        }
+      } catch (error) {
+        console.error("Error initializing:", error);
+      }
+    };
+    initializeData();
   }, []);
 
-  const loadData = () => {
-    // Simulate API calls
-    setParents(mockParents);
-    setPendingRequests(mockPendingRequests);
+  const fetchConnectedElders = async (userId) => {
+    try {
+      setLoading(true);
+      const response = await axios.get(
+        `${BASE_URL}/api/auth/linked-users/${userId}`,
+        { timeout: 10000 }
+      );
+      const elders = response.data.filter(
+        (user) => user.userRole === "Elder" || user.role === "Elder"
+      );
+      setParents(elders);
+    } catch (error) {
+      console.error("Error fetching elders:", error);
+      Alert.alert("Error", "Failed to load connected elders");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const onRefresh = () => {
+  const fetchPendingRequests = async (userId) => {
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/api/auth/connection-requests/pending/${userId}`,
+        { timeout: 10000 }
+      );
+      setPendingRequests(response.data || []);
+    } catch (error) {
+      console.error("Error fetching pending requests:", error);
+    }
+  };
+
+  const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      loadData();
-      setRefreshing(false);
-    }, 1000);
+    if (loggedInUserId) {
+      await Promise.all([
+        fetchConnectedElders(loggedInUserId),
+        fetchPendingRequests(loggedInUserId),
+      ]);
+    }
+    setRefreshing(false);
+  };
+
+  const toggleDrawer = () => setIsDrawerOpen(!isDrawerOpen);
+  const closeDrawer = () => setIsDrawerOpen(false);
+
+  const navigateFromDrawer = (screenName, params = {}) => {
+    closeDrawer();
+    navigation.navigate(screenName, params);
   };
 
   const handleAddParent = () => {
@@ -89,8 +119,7 @@ const CareGiverDashboard = () => {
       Alert.alert("Error", "Please fill all fields");
       return;
     }
-
-    // Here you would make API call to send request
+    // TODO: Implement API to send connection request
     Alert.alert(
       "Request Sent",
       `Connection request sent to ${newParent.name}. They will receive a notification to accept your request.`,
@@ -100,355 +129,317 @@ const CareGiverDashboard = () => {
     setNewParent({ name: "", email: "", phone: "", relationship: "Parent" });
   };
 
-  const getHealthStatusColor = (status) => {
-    switch (status) {
-      case "Good":
-        return "#4CAF50";
-      case "Attention Needed":
-        return "#FF9800";
-      case "Critical":
-        return "#F44336";
-      default:
-        return "#9E9E9E";
-    }
-  };
-
-  const getReadingStatus = (type, value) => {
-    // Simple logic for demonstration
-    if (type === "bp") {
-      const [systolic] = value.split("/").map(Number);
-      return systolic > 130 ? "#FF9800" : "#4CAF50";
-    }
-    if (type === "sugar") {
-      return parseInt(value) > 140 ? "#FF9800" : "#4CAF50";
-    }
-    if (type === "cholesterol") {
-      return parseInt(value) > 200 ? "#FF9800" : "#4CAF50";
-    }
-    return "#4CAF50";
-  };
-
-  const renderParentCard = (parent) => (
-    <TouchableOpacity key={parent.id} style={styles.parentCard}>
-      <View style={styles.parentHeader}>
-        <View style={styles.parentInfo}>
-          <Text style={styles.parentName}>{parent.name}</Text>
-          <Text style={styles.relationshipText}>{parent.relationship}</Text>
-        </View>
-        <View style={styles.statusContainer}>
-          <View
-            style={[
-              styles.statusDot,
-              { backgroundColor: getHealthStatusColor(parent.healthStatus) },
-            ]}
-          />
-          <Text
-            style={[
-              styles.statusText,
-              { color: getHealthStatusColor(parent.healthStatus) },
-            ]}
-          >
-            {parent.healthStatus}
-          </Text>
+  const DrawerContent = () => (
+    <View style={styles.drawerContainer}>
+      <View style={styles.drawerHeader}>
+        <TouchableOpacity style={styles.closeButton} onPress={closeDrawer}>
+          <X size={moderateScale(24)} color="#666" />
+        </TouchableOpacity>
+        <View style={styles.profileSection}>
+          <View style={styles.profileAvatar}>
+            <User size={moderateScale(40)} color="#2196F3" />
+          </View>
+          <Text style={styles.profileName}>{userDetails.fullName}</Text>
+          <Text style={styles.profileRole}>{userDetails.role}</Text>
         </View>
       </View>
 
-      <View style={styles.lastUpdateContainer}>
-        <Icon name="access-time" size={scale(14)} color="#666" />
-        <Text style={styles.lastUpdateText}>
-          Last update: {parent.lastUpdate}
-        </Text>
-      </View>
+      <View style={styles.drawerMenu}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigateFromDrawer("MyProfile", { userDetails })}
+        >
+          <User size={moderateScale(24)} color="#666" />
+          <Text style={styles.menuText}>My Profile</Text>
+        </TouchableOpacity>
 
-      {parent.criticalAlerts > 0 && (
-        <View style={styles.alertContainer}>
-          <Icon name="warning" size={scale(16)} color="#FF5722" />
-          <Text style={styles.alertText}>
-            {parent.criticalAlerts} critical alert(s)
-          </Text>
-        </View>
-      )}
-
-      <View style={styles.healthReadings}>
-        <Text style={styles.readingsTitle}>Latest Readings</Text>
-        <View style={styles.readingsRow}>
-          <View style={styles.readingItem}>
-            <Text style={styles.readingLabel}>BP</Text>
-            <Text
-              style={[
-                styles.readingValue,
-                { color: getReadingStatus("bp", parent.recentReadings.bp) },
-              ]}
-            >
-              {parent.recentReadings.bp}
-            </Text>
-          </View>
-          <View style={styles.readingItem}>
-            <Text style={styles.readingLabel}>Sugar</Text>
-            <Text
-              style={[
-                styles.readingValue,
-                {
-                  color: getReadingStatus("sugar", parent.recentReadings.sugar),
-                },
-              ]}
-            >
-              {parent.recentReadings.sugar}
-            </Text>
-          </View>
-          <View style={styles.readingItem}>
-            <Text style={styles.readingLabel}>Cholesterol</Text>
-            <Text
-              style={[
-                styles.readingValue,
-                {
-                  color: getReadingStatus(
-                    "cholesterol",
-                    parent.recentReadings.cholesterol
-                  ),
-                },
-              ]}
-            >
-              {parent.recentReadings.cholesterol}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <TouchableOpacity style={styles.viewDetailsButton}>
-        <Text style={styles.viewDetailsText}>View Full Health Report</Text>
-        <Icon name="arrow-forward" size={scale(16)} color="#2196F3" />
-      </TouchableOpacity>
-    </TouchableOpacity>
-  );
-
-  const renderPendingRequest = (request) => (
-    <View key={request.id} style={styles.pendingCard}>
-      <View style={styles.pendingInfo}>
-        <Icon name="person-add" size={scale(20)} color="#FF9800" />
-        <View style={styles.pendingDetails}>
-          <Text style={styles.pendingName}>{request.name}</Text>
-          <Text style={styles.pendingEmail}>{request.email}</Text>
-          <Text style={styles.pendingDate}>Sent: {request.requestDate}</Text>
-        </View>
-      </View>
-      <Text style={styles.pendingStatus}>Pending</Text>
-    </View>
-  );
-
-  return (
-    <ScreenWrapper>
-      <View style={styles.container}>
-        <StatusBar backgroundColor="#2196F3" barStyle="light-content" />
-
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>CareGiver Dashboard</Text>
-            <Text style={styles.headerSubtitle}>Monitor your loved ones</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setAddParentModal(true)}
-          >
-            <Icon name="person-add" size={scale(24)} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          style={styles.content}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            navigateFromDrawer("PendingRequestsScreen", {
+              userRole: "Elder",
+            })
           }
         >
-          {/* Quick Stats */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{parents.length}</Text>
-              <Text style={styles.statLabel}>Connected</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={[styles.statNumber, { color: "#FF9800" }]}>
-                {parents.reduce((sum, p) => sum + p.criticalAlerts, 0)}
-              </Text>
-              <Text style={styles.statLabel}>Alerts</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={[styles.statNumber, { color: "#4CAF50" }]}>
-                {parents.filter((p) => p.healthStatus === "Good").length}
-              </Text>
-              <Text style={styles.statLabel}>Healthy</Text>
-            </View>
-          </View>
-
-          {/* Pending Requests */}
-          {pendingRequests.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Pending Requests</Text>
-              {pendingRequests.map(renderPendingRequest)}
-            </View>
-          )}
-
-          {/* Connected Parents */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Your Parents</Text>
-            {parents.length > 0 ? (
-              parents.map(renderParentCard)
-            ) : (
-              <View style={styles.emptyState}>
-                <Icon name="family-restroom" size={scale(60)} color="#ccc" />
-                <Text style={styles.emptyStateText}>
-                  No parents connected yet
-                </Text>
-                <Text style={styles.emptyStateSubtext}>
-                  Add your parents to start monitoring their health
-                </Text>
-                <TouchableOpacity
-                  style={styles.emptyStateButton}
-                  onPress={() => setAddParentModal(true)}
-                >
-                  <Text style={styles.emptyStateButtonText}>Add Parent</Text>
-                </TouchableOpacity>
+          <View style={styles.menuIconContainer}>
+            <Bell size={moderateScale(24)} color="#666" />
+            {pendingRequests.length > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{pendingRequests.length}</Text>
               </View>
             )}
           </View>
-        </ScrollView>
+          <Text style={styles.menuText}>Pending Requests</Text>
+        </TouchableOpacity>
 
-        {/* Add Parent Modal */}
-        <Modal
-          visible={addParentModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setAddParentModal(false)}
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigateFromDrawer("MyConnections")}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Add Parent</Text>
-                <TouchableOpacity onPress={() => setAddParentModal(false)}>
-                  <Icon name="close" size={scale(24)} color="#666" />
-                </TouchableOpacity>
+          <UserCheck size={moderateScale(24)} color="#666" />
+          <Text style={styles.menuText}>My Connections</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            navigateFromDrawer("UserSearchScreen", { userRole: "Elder" })
+          }
+        >
+          <Users size={moderateScale(24)} color="#666" />
+          <Text style={styles.menuText}>Find Elders</Text>
+        </TouchableOpacity>
+
+        <View style={styles.menuSeparator} />
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigateFromDrawer("Settings")}
+        >
+          <Settings size={moderateScale(24)} color="#666" />
+          <Text style={styles.menuText}>Settings</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={async () => {
+            try {
+              await AsyncStorage.multiRemove(["userToken", "userDetails"]);
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [{ name: "Login" }],
+                })
+              );
+            } catch (error) {
+              console.error("Error logging out:", error);
+            }
+          }}
+        >
+          <LogOut size={moderateScale(24)} color="#666" />
+          <Text style={styles.menuText}>Log Out</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderElderCard = (elder) => (
+    <TouchableOpacity
+      key={elder._id}
+      style={styles.parentCard}
+      onPress={() =>
+        navigation.navigate("ElderHealthDetails", {
+          elderId: elder._id,
+          elderName: elder.fullName,
+        })
+      }
+    >
+      <View style={styles.parentHeader}>
+        <View style={styles.avatar}>
+          {/* <Text style={styles.avatarText}>
+            {(elder.fullName || "U").charAt(0).toUpperCase()}
+          </Text> */}
+        </View>
+        <View style={styles.parentInfo}>
+          <Text style={styles.parentName}>{elder.fullName || "Unknown"}</Text>
+          <Text style={styles.relationshipText}>{elder.email}</Text>
+          <Text style={styles.roleText}>Elder</Text>
+        </View>
+        <Icon name="chevron-right" size={scale(24)} color="#666" />
+      </View>
+
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={styles.quickActionButton}
+          onPress={() => handleCall(elder.phoneNumber, elder.fullName)}
+        >
+          <Icon name="phone" size={scale(18)} color="#22c55e" />
+          <Text style={styles.quickActionText}>Call</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.quickActionButton}
+          onPress={() =>
+            navigation.navigate("ChatScreen", {
+              connectionId: elder._id,
+              connectionName: elder.fullName,
+            })
+          }
+        >
+          <Icon name="message" size={scale(18)} color="#2196F3" />
+          <Text style={styles.quickActionText}>Message</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={styles.screen}>
+      <ScreenWrapper>
+        <View style={styles.container}>
+          <StatusBar backgroundColor="#2196F3" barStyle="light-content" />
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={toggleDrawer}
+              >
+                <Menu size={moderateScale(24)} color="#fff" />
+              </TouchableOpacity>
+
+              <View style={styles.headerContent}>
+                <Text style={styles.headerTitle}>CareGiver Dashboard</Text>
+                <Text style={styles.headerSubtitle}>
+                  Monitor your loved ones
+                </Text>
               </View>
 
-              <ScrollView style={styles.modalBody}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Full Name *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={newParent.name}
-                    onChangeText={(text) =>
-                      setNewParent({ ...newParent, name: text })
-                    }
-                    placeholder="Enter parent's full name"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Email Address *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={newParent.email}
-                    onChangeText={(text) =>
-                      setNewParent({ ...newParent, email: text })
-                    }
-                    placeholder="Enter email address"
-                    keyboardType="email-address"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Phone Number *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={newParent.phone}
-                    onChangeText={(text) =>
-                      setNewParent({ ...newParent, phone: text })
-                    }
-                    placeholder="Enter phone number"
-                    keyboardType="phone-pad"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Relationship</Text>
-                  <View style={styles.relationshipContainer}>
-                    {["Parent", "Mother", "Father", "Guardian", "Relative"].map(
-                      (rel) => (
-                        <TouchableOpacity
-                          key={rel}
-                          style={[
-                            styles.relationshipChip,
-                            newParent.relationship === rel &&
-                              styles.relationshipChipActive,
-                          ]}
-                          onPress={() =>
-                            setNewParent({ ...newParent, relationship: rel })
-                          }
-                        >
-                          <Text
-                            style={[
-                              styles.relationshipChipText,
-                              newParent.relationship === rel &&
-                                styles.relationshipChipTextActive,
-                            ]}
-                          >
-                            {rel}
-                          </Text>
-                        </TouchableOpacity>
-                      )
-                    )}
-                  </View>
-                </View>
-
-                <View style={styles.infoBox}>
-                  <Icon name="info" size={scale(16)} color="#2196F3" />
-                  <Text style={styles.infoText}>
-                    A connection request will be sent to your parent. They need
-                    to accept it to start sharing health data.
-                  </Text>
-                </View>
-              </ScrollView>
-
-              <View style={styles.modalFooter}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setAddParentModal(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.sendButton}
-                  onPress={handleAddParent}
-                >
-                  <Text style={styles.sendButtonText}>Send Request</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() =>
+                  navigation.navigate("UserSearchScreen", { userRole: "Elder" })
+                }
+              >
+                <Icon name="person-add" size={scale(24)} color="#fff" />
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      </View>
-    </ScreenWrapper>
+
+          <ScrollView
+            style={styles.content}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          >
+            <View style={styles.statsContainer}>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>{parents.length}</Text>
+                <Text style={styles.statLabel}>Connected Elders</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={[styles.statNumber, { color: "#FF9800" }]}>
+                  {pendingRequests.length}
+                </Text>
+                <Text style={styles.statLabel}>Pending</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={[styles.statNumber, { color: "#22c55e" }]}>
+                  {parents.length}
+                </Text>
+                <Text style={styles.statLabel}>Active</Text>
+              </View>
+            </View>
+
+            {pendingRequests.length > 0 && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Pending Requests</Text>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate("PendingRequestsScreen")}
+                  >
+                    <Text style={styles.viewAllText}>View All</Text>
+                  </TouchableOpacity>
+                </View>
+                {pendingRequests.slice(0, 2).map((request) => (
+                  <View key={request._id} style={styles.pendingCard}>
+                    <View style={styles.pendingInfo}>
+                      <View style={styles.smallAvatar}>
+                        <Text style={styles.smallAvatarText}>
+                          {(request.fromUserId?.fullName || "U")
+                            .charAt(0)
+                            .toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.pendingDetails}>
+                        <Text style={styles.pendingName}>
+                          {request.fromUserId?.fullName || "Unknown"}
+                        </Text>
+                        <Text style={styles.pendingEmail}>
+                          {request.fromUserId?.email || "No email"}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.pendingStatus}>Pending</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Connected Elders</Text>
+              {parents.length > 0 ? (
+                parents.map(renderElderCard)
+              ) : (
+                <View style={styles.emptyState}>
+                  <Icon name="people-outline" size={scale(60)} color="#ccc" />
+                  <Text style={styles.emptyStateText}>
+                    No elders connected yet
+                  </Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    Connect with elders to monitor their health
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.emptyStateButton}
+                    onPress={() =>
+                      navigation.navigate("UserSearchScreen", {
+                        userRole: "Elder",
+                      })
+                    }
+                  >
+                    <Text style={styles.emptyStateButtonText}>Find Elders</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+      </ScreenWrapper>
+
+      {isDrawerOpen && (
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={closeDrawer}
+        >
+          <View style={styles.drawer}>
+            <DrawerContent />
+          </View>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    // backgroundColor: "#fff",
+  },
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
   header: {
     backgroundColor: "#2196F3",
-
     paddingBottom: verticalScale(20),
     paddingHorizontal: scale(20),
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
+  },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  menuButton: {
+    padding: moderateScale(8),
+    marginRight: moderateScale(12),
+  },
+  headerContent: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: moderateScale(24),
@@ -465,6 +456,114 @@ const styles = StyleSheet.create({
     padding: scale(12),
     borderRadius: scale(25),
   },
+
+  // Drawer Styles
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "flex-start",
+  },
+  drawer: {
+    width: "80%",
+    height: "100%",
+    backgroundColor: "#fff",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 2,
+      height: 0,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  drawerContainer: {
+    flex: 1,
+  },
+  drawerHeader: {
+    backgroundColor: "#2196F3",
+    paddingTop: verticalScale(50),
+    paddingBottom: verticalScale(30),
+    paddingHorizontal: scale(20),
+    position: "relative",
+  },
+  closeButton: {
+    position: "absolute",
+    top: verticalScale(50),
+    right: scale(20),
+    zIndex: 1,
+  },
+  profileSection: {
+    alignItems: "center",
+    marginTop: verticalScale(10),
+  },
+  profileAvatar: {
+    backgroundColor: "#fff",
+    width: moderateScale(80),
+    height: moderateScale(80),
+    borderRadius: moderateScale(40),
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: verticalScale(12),
+  },
+  profileName: {
+    fontSize: moderateScale(24),
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: verticalScale(4),
+  },
+  profileRole: {
+    fontSize: moderateScale(16),
+    color: "#fff",
+    opacity: 0.9,
+  },
+  drawerMenu: {
+    flex: 1,
+    paddingTop: verticalScale(30),
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: verticalScale(16),
+    paddingHorizontal: scale(20),
+  },
+  menuIconContainer: {
+    position: "relative",
+  },
+  menuText: {
+    fontSize: moderateScale(18),
+    color: "#333",
+    marginLeft: scale(16),
+    fontWeight: "500",
+  },
+  badge: {
+    position: "absolute",
+    top: moderateScale(-8),
+    right: moderateScale(-8),
+    backgroundColor: "#ef4444",
+    borderRadius: moderateScale(10),
+    minWidth: moderateScale(20),
+    height: moderateScale(20),
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: moderateScale(12),
+    fontWeight: "bold",
+  },
+  menuSeparator: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginVertical: verticalScale(16),
+    marginHorizontal: scale(20),
+  },
+
+  // Existing styles continue...
   content: {
     flex: 1,
     paddingHorizontal: scale(16),
@@ -796,6 +895,61 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(14),
     color: "#fff",
     fontWeight: "500",
+  },
+
+  quickActions: {
+    flexDirection: "row",
+    marginTop: verticalScale(12),
+    gap: moderateScale(12),
+    paddingTop: verticalScale(12),
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+  },
+  quickActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: verticalScale(8),
+    backgroundColor: "#f8f9fa",
+    borderRadius: moderateScale(8),
+  },
+  quickActionText: {
+    marginLeft: moderateScale(4),
+    fontSize: moderateScale(12),
+    color: "#666",
+    fontWeight: "500",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: verticalScale(12),
+  },
+  viewAllText: {
+    fontSize: moderateScale(14),
+    color: "#2196F3",
+    fontWeight: "500",
+  },
+  smallAvatar: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    backgroundColor: "#22c55e",
+    borderRadius: moderateScale(20),
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: moderateScale(12),
+  },
+  smallAvatarText: {
+    color: "#fff",
+    fontSize: moderateScale(16),
+    fontWeight: "bold",
+  },
+  roleText: {
+    fontSize: moderateScale(12),
+    color: "#22c55e",
+    fontWeight: "500",
+    marginTop: verticalScale(2),
   },
 });
 

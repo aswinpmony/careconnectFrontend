@@ -26,19 +26,14 @@ const LogMyHealth = () => {
   const [notes, setNotes] = useState("");
 
   const handleDateChange = (event, selectedDate) => {
-    console.log("📅 Date picker opened");
     setShowDatePicker(false);
     if (selectedDate) {
-      console.log("📅 Date selected:", selectedDate.toISOString());
       setDate(selectedDate);
     }
   };
 
   const handleSubmit = async () => {
-    console.log("📤 Submit button pressed");
-
     if (!bp || !sugar || !cholesterol) {
-      console.warn("❗Missing required fields");
       Alert.alert("Missing Info", "Please fill in all the health fields.");
       return;
     }
@@ -53,12 +48,8 @@ const LogMyHealth = () => {
       notes,
     };
 
-    console.log("🧾 Prepared data to send:", data);
-
     try {
       const res = await axios.post(`${BASE_URL}/api/auth/add-health-log`, data);
-
-      console.log("✅ Response from server:", res.data);
 
       if (res.status === 200 || res.data.success) {
         Alert.alert("✅ Success", "Health log created successfully");
@@ -80,17 +71,14 @@ const LogMyHealth = () => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Log My Health</Text>
-
       <TouchableOpacity
         onPress={() => {
-          console.log("📅 Date picker toggled");
           setShowDatePicker(true);
         }}
         style={styles.input}
       >
         <Text style={styles.inputText}>{date.toDateString()}</Text>
       </TouchableOpacity>
-
       {showDatePicker && (
         <DateTimePicker
           value={date}
@@ -99,23 +87,19 @@ const LogMyHealth = () => {
           onChange={handleDateChange}
         />
       )}
-
       <TextInput
         style={styles.input}
         placeholder="Blood Pressure (e.g., 120/80)"
         value={bp}
         onChangeText={(text) => {
-          console.log("📝 BP changed:", text);
           setBp(text);
         }}
       />
-
       <TextInput
         style={styles.input}
         placeholder="Sugar Level (e.g., 110 mg/dL)"
         value={sugar}
         onChangeText={(text) => {
-          console.log("📝 Sugar changed:", text);
           setSugar(text);
         }}
         keyboardType="numeric"
@@ -126,22 +110,18 @@ const LogMyHealth = () => {
         placeholder="Cholesterol (e.g., 180 mg/dL)"
         value={cholesterol}
         onChangeText={(text) => {
-          console.log("📝 Cholesterol changed:", text);
           setCholesterol(text);
         }}
         keyboardType="numeric"
       />
-
       <TextInput
         style={styles.input}
         placeholder="Notes (optional)"
         value={notes}
         onChangeText={(text) => {
-          console.log("📝 Notes changed:", text);
           setNotes(text);
         }}
       />
-
       <TouchableOpacity style={styles.button} onPress={handleSubmit}>
         <Text style={styles.buttonText}>Submit</Text>
       </TouchableOpacity>

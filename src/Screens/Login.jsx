@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import axios from "axios";
 import BASE_URL from "../Config/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ScreenWrapper from "../Constants/ScreenWrapper";
+import { useFocusEffect } from "@react-navigation/native";
 
 const Login = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -25,6 +26,14 @@ const Login = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
 
+  // 👇 Reset email and password when screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      setFormData({ email: "", password: "" });
+      setErrors({});
+      setShowPassword(false);
+    }, [])
+  );
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
       ...prev,
@@ -74,11 +83,12 @@ const Login = ({ navigation }) => {
       // ✅ Direct navigation without Alert
 
       const userRole = response.data.user.role;
+      const userDetails = response.data.user;
 
       if (userRole === "Elder") {
-        navigation.navigate("ElderDashboard");
+        navigation.navigate("ElderDashboard", { userDetails });
       } else {
-        navigation.navigate("CaregiverDashboard");
+        navigation.navigate("CaregiverDashboard", { userDetails });
       }
     } catch (error) {
       let errorMessage = "Login failed. Please try again.";
