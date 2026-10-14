@@ -17,41 +17,54 @@ const UserSearchScreen = ({ navigation, route }) => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const handleSearch = async (text) => {
+    console.log("🔍 Search triggered with text:", text);
+    console.log("👤 Current userRole (who is searching):", userRole);
+
     setQuery(text);
 
     if (!text.trim()) {
+      console.log("ℹ️ Empty text, clearing results");
       setResults([]);
       return;
     }
 
     setLoading(true);
     try {
-      // ✅ Read current user ID from AsyncStorage
       const currentUserId = await AsyncStorage.getItem("userID");
+      console.log("🆔 Logged-in user ID:", currentUserId);
 
       if (!currentUserId) {
-        console.warn("No logged-in user ID found");
+        console.warn("⚠️ No logged-in user ID found");
         setLoading(false);
         return;
       }
 
-      // Call your search API
-      const response = await fetch(
-        `${BASE_URL}/api/auth/search-users?q=${encodeURIComponent(
-          text.trim()
-        )}&userId=${currentUserId}`
-      );
+      const apiURL = `${BASE_URL}/api/auth/search-users?q=${encodeURIComponent(
+        text.trim()
+      )}&userId=${currentUserId}`;
+      console.log("🌐 Calling API:", apiURL);
+
+      const response = await fetch(apiURL);
+
+      console.log("📡 API status:", response.status);
 
       if (!response.ok) throw new Error("Failed to fetch search results");
 
       const data = await response.json();
+      console.log("📥 Raw data from API:", data);
 
-      // Optionally filter by opposite role
-      const filteredResults = (data || []).filter((u) => u.role !== userRole);
+      const filteredResults = (data || []).filter((u) => {
+        console.log(`➡️ Checking user: ${u.fullName}, role: ${u.role}`);
+        return u.role !== userRole;
+      });
+
+      console.log(
+        "📤 Filtered results (after removing same role):",
+        filteredResults
+      );
 
       setResults(filteredResults);
     } catch (err) {
-      console.error("Search error:", err);
       setResults([]);
     } finally {
       setLoading(false);
