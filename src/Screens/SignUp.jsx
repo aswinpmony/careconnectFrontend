@@ -23,6 +23,8 @@ import {
   Users,
   ChevronDown,
   X,
+  Eye,
+  EyeOff
 } from "lucide-react-native";
 import { scale, verticalScale, moderateScale } from "react-native-size-matters";
 import BASE_URL from "../Config/api";
@@ -35,6 +37,8 @@ const SignUp = ({ navigation }) => {
   const [selectedGender, setSelectedGender] = useState("");
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -83,6 +87,63 @@ const SignUp = ({ navigation }) => {
     const formatted = formatDate(text);
     handleInputChange("dateOfBirth", formatted);
   };
+   const isValidPhoneNumber = (phoneNumber) => {
+  return /^[6-9]\d{9}$/.test(phoneNumber);
+};
+
+const validateDateOfBirth = (dateOfBirth, role) => {
+  // Check date format: DD/MM/YYYY
+  const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+  const match = dateOfBirth.match(dateRegex);
+
+  if (!match) {
+    return "Please enter your date of birth in DD/MM/YYYY format.";
+  }
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+
+  // Check whether the date actually exists
+  const birthDate = new Date(year, month - 1, day);
+
+  if (
+    birthDate.getDate() !== day ||
+    birthDate.getMonth() !== month - 1 ||
+    birthDate.getFullYear() !== year
+  ) {
+    return "Please enter a valid date of birth.";
+  }
+
+  // Prevent future dates
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (birthDate > today) {
+    return "Date of birth cannot be in the future.";
+  }
+
+  // Calculate age
+  let age = today.getFullYear() - year;
+
+  const hasBirthdayPassed =
+    today.getMonth() > birthDate.getMonth() ||
+    (today.getMonth() === birthDate.getMonth() &&
+      today.getDate() >= birthDate.getDate());
+
+  if (!hasBirthdayPassed) {
+    age--;
+  }
+
+  // Only CareGivers must be at least 18
+  if (role === "CareGiver" && age < 18) {
+    return "CareGivers must be at least 18 years old.";
+  }
+
+  return null; // Validation successful
+};
+
   const validateForm = () => {
     if (!selectedRole) {
       Alert.alert("Role Required", "Please select your role to continue");
@@ -133,9 +194,26 @@ const SignUp = ({ navigation }) => {
       Alert.alert("Missing Information", "Please enter your date of birth");
       return false;
     }
+    // Check DOB validity and caregiver age
+    const dobError = validateDateOfBirth(
+      formData.dateOfBirth,
+      selectedRole
+    );
+
+    if (dobError) {
+      Alert.alert("Invalid Date of Birth", dobError);
+      return false;
+    }
 
     if (!formData.phoneNumber.trim()) {
       Alert.alert("Missing Information", "Please enter your phone number");
+      return false;
+    }
+    if (!isValidPhoneNumber(formData.phoneNumber)) {
+      Alert.alert(
+        "Invalid Phone Number",
+        "Please enter a valid 10-digit mobile number."
+      );
       return false;
     }
 
@@ -373,14 +451,28 @@ const SignUp = ({ navigation }) => {
               style={styles.textInput}
               placeholder="Password *"
               placeholderTextColor="#9CA3AF"
-              secureTextEntry
+              secureTextEntry={!showPassword}
               value={formData.password}
               onChangeText={(value) => handleInputChange("password", value)}
               editable={!loading}
             />
+
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowPassword((prev) => !prev)}
+              disabled={loading}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? (
+                <EyeOff size={scale(20)} color="#6B7280" />
+              ) : (
+                <Eye size={scale(20)} color="#6B7280" />
+              )}
+            </TouchableOpacity>
           </View>
         </View>
-
         {/* Confirm Password */}
         <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
@@ -389,13 +481,30 @@ const SignUp = ({ navigation }) => {
               style={styles.textInput}
               placeholder="Confirm Password *"
               placeholderTextColor="#9CA3AF"
-              secureTextEntry
+              secureTextEntry={!showConfirmPassword}
               value={formData.confirmPassword}
               onChangeText={(value) =>
                 handleInputChange("confirmPassword", value)
               }
               editable={!loading}
             />
+
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowConfirmPassword((prev) => !prev)}
+              disabled={loading}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={
+                showConfirmPassword ? "Hide confirm password" : "Show confirm password"
+              }
+            >
+              {showConfirmPassword ? (
+                <EyeOff size={scale(20)} color="#6B7280" />
+              ) : (
+                <Eye size={scale(20)} color="#6B7280" />
+              )}
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -755,6 +864,12 @@ const styles = StyleSheet.create({
   inputIcon: {
     marginRight: scale(12),
   },
+  eyeButton: {
+    padding: scale(4),
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
   textInput: {
     flex: 1,
     fontSize: moderateScale(15),
