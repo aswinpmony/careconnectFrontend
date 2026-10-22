@@ -12,6 +12,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import BASE_URL from "../Config/api";
 import ScreenWrapper from "../Constants/ScreenWrapper";
+import apiClient from "../Config/apiClient";
+
 
 const ProfileScreen = ({ navigation }) => {
   // Initialize with empty object instead of null to prevent undefined errors
@@ -30,109 +32,111 @@ const ProfileScreen = ({ navigation }) => {
   useEffect(() => {}, [userData, hasValidData]);
 
   const fetchProfileData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setHasValidData(false);
-      setUserData({}); // Reset to empty object
+  try {
+    setLoading(true);
+    setError(null);
+    setHasValidData(false);
+    setUserData({});
 
-      const storedUserId = await AsyncStorage.getItem("userID");
+    const storedUserId = await AsyncStorage.getItem("userID");
 
-      if (
-        !storedUserId ||
-        storedUserId === "null" ||
-        storedUserId === "undefined"
-      ) {
-        setError("Please log in again to view your profile.");
-        return;
-      }
-
-      // Make API calls with timeout
-      const timeout = 10000; // 10 seconds
-
-      const userPromise = axios.get(
-        `${BASE_URL}/api/auth/get-profile-data/${storedUserId}`,
-        { timeout }
-      );
-
-      const healthPromise = axios.get(
-        `${BASE_URL}/api/auth/get-health-logs/${storedUserId}`,
-        { timeout }
-      );
-
-      const [userRes, healthRes] = await Promise.all([
-        userPromise,
-        healthPromise,
-      ]);
-
-      // Validate and set user data
-      if (
-        userRes.data &&
-        userRes.data.userData &&
-        typeof userRes.data.userData === "object"
-      ) {
-        const userData = userRes.data.userData;
-
-        // Ensure all expected properties exist with defaults
-        const safeUserData = {
-          id: userData.id || "",
-          fullName: userData.fullName || "Unknown User",
-          email: userData.email || "No Email",
-          phoneNumber: userData.phoneNumber || "N/A",
-          gender: userData.gender || "N/A",
-          dob: userData.dob || "N/A",
-          address: userData.address || "N/A",
-          role: userData.role || "User",
-          emergencyContact: userData.emergencyContact || "N/A",
-          healthIssues: userData.healthIssues || "None",
-        };
-
-        setUserData(safeUserData);
-        setHasValidData(true);
-      } else {
-        console.error("Invalid user data structure:", userRes.data);
-        setError("Invalid user data received from server");
-        return;
-      }
-
-      // Handle health logs
-      if (healthRes.data && Array.isArray(healthRes.data.healthLogs)) {
-        setHealthLogs(healthRes.data.healthLogs);
-      } else {
-        setHealthLogs([]);
-      }
-    } catch (apiError) {
-      console.error("=== API Error ===");
-      console.error("Error type:", apiError.name);
-      console.error("Error message:", apiError.message);
-
-      setUserData({});
-      setHasValidData(false);
-
-      if (apiError.code === "ECONNABORTED") {
-        setError("Request timeout. Please check your internet connection.");
-      } else if (apiError.response) {
-        console.error("Response error:", {
-          status: apiError.response.status,
-          data: apiError.response.data,
-          headers: apiError.response.headers,
-        });
-        setError(
-          `Server error (${apiError.response.status}): ${
-            apiError.response.data?.message || "Unknown error"
-          }`
-        );
-      } else if (apiError.request) {
-        console.error("Network error - no response received");
-        setError("Network error. Please check your internet connection.");
-      } else {
-        console.error("Request setup error:", apiError.message);
-        setError("Failed to make request. Please try again.");
-      }
-    } finally {
-      setLoading(false);
+    if (
+      !storedUserId ||
+      storedUserId === "null" ||
+      storedUserId === "undefined"
+    ) {
+      setError("Please log in again to view your profile.");
+      return;
     }
-  };
+
+    const timeout = 10000;
+
+    // Use apiClient so the JWT is attached automatically
+    const userPromise = apiClient.get(
+      `/api/auth/get-profile-data/${storedUserId}`,
+      { timeout }
+    );
+
+    const healthPromise = apiClient.get(
+      `/api/auth/get-health-logs/${storedUserId}`,
+      { timeout }
+    );
+
+    const [userRes, healthRes] = await Promise.all([
+      userPromise,
+      healthPromise,
+    ]);
+
+    // Validate and set user data
+    if (
+      userRes.data &&
+      userRes.data.userData &&
+      typeof userRes.data.userData === "object"
+    ) {
+      const userData = userRes.data.userData;
+
+      const safeUserData = {
+        id: userData.id || "",
+        fullName: userData.fullName || "Unknown User",
+        email: userData.email || "No Email",
+        phoneNumber: userData.phoneNumber || "N/A",
+        gender: userData.gender || "N/A",
+        dob: userData.dob || "N/A",
+        address: userData.address || "N/A",
+        role: userData.role || "User",
+        emergencyContact: userData.emergencyContact || "N/A",
+        healthIssues: userData.healthIssues || "None",
+      };
+
+      setUserData(safeUserData);
+      setHasValidData(true);
+    } else {
+      console.error("Invalid user data structure:", userRes.data);
+      setError("Invalid user data received from server");
+      return;
+    }
+
+    // Handle health logs
+    if (
+      healthRes.data &&
+      Array.isArray(healthRes.data.healthLogs)
+    ) {
+      setHealthLogs(healthRes.data.healthLogs);
+    } else {
+      setHealthLogs([]);
+    }
+  } catch (apiError) {
+    console.error("=== API Error ===");
+    console.error("Error type:", apiError.name);
+    console.error("Error message:", apiError.message);
+
+    setUserData({});
+    setHasValidData(false);
+
+    if (apiError.code === "ECONNABORTED") {
+      setError("Request timeout. Please check your internet connection.");
+    } else if (apiError.response) {
+      console.error("Response error:", {
+        status: apiError.response.status,
+        data: apiError.response.data,
+      });
+
+      setError(
+        `Server error (${apiError.response.status}): ${
+          apiError.response.data?.message || "Unknown error"
+        }`
+      );
+    } else if (apiError.request) {
+      console.error("Network error - no response received");
+      setError("Network error. Please check your internet connection.");
+    } else {
+      console.error("Request setup error:", apiError.message);
+      setError("Failed to make request. Please try again.");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Format date for display
   const formatDate = (dateString) => {

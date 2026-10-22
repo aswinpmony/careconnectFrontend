@@ -11,8 +11,8 @@ import {
 } from "react-native";
 import { Heart, Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react-native";
 import { scale, verticalScale, moderateScale } from "react-native-size-matters";
-import axios from "axios";
-import BASE_URL from "../Config/api";
+import apiClient from "../Config/apiClient";
+import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ScreenWrapper from "../Constants/ScreenWrapper";
 import { useFocusEffect } from "@react-navigation/native";
@@ -73,14 +73,23 @@ const Login = ({ navigation }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${BASE_URL}/api/auth/login`, {
+      const response = await apiClient.post("/api/auth/login", {
         email: formData.email,
         password: formData.password,
       });
 
-      await AsyncStorage.setItem("userID", response.data.user.id);
+      const { token, user } = response.data; 
+
+      if (!token || !user?.id) {
+        throw new Error("Invalid login response");
+      }
+
+      await SecureStore.setItemAsync("authToken", token);
+      await AsyncStorage.setItem("userID", user.id);
 
       // ✅ Direct navigation without Alert
+      const savedToken = await SecureStore.getItemAsync("authToken");
+console.log("Token saved:", Boolean(savedToken));
 
       const userRole = response.data.user.role;
       const userDetails = response.data.user;

@@ -10,10 +10,11 @@ import {
   RefreshControl,
 } from "react-native";
 import { scale, verticalScale, moderateScale } from "react-native-size-matters";
-import axios from "axios";
-import BASE_URL from "../Config/api";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ScreenWrapper from "../Constants/ScreenWrapper";
+import apiClient from "../Config/apiClient";
+
 
 const PendingRequestsScreen = () => {
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -45,110 +46,112 @@ const PendingRequestsScreen = () => {
 
     getUserIdAndFetchRequests();
   }, []);
+const fetchPendingRequests = async (userId = loggedInUserId) => {
+  if (!userId) return;
 
-  const fetchPendingRequests = async (userId = loggedInUserId) => {
-    if (!userId) return;
+  try {
+    const response = await apiClient.get(
+      `/api/auth/connection-requests/pending/${userId}`,
+      { timeout: 10000 }
+    );
 
-    try {
-      const response = await axios.get(
-        `${BASE_URL}/api/auth/connection-requests/pending/${userId}`,
-        { timeout: 10000 }
+    setPendingRequests(response.data || []);
+    setError(null);
+  } catch (error) {
+    if (error.response) {
+      setError(
+        `Server error: ${error.response.data?.message || "Unknown error"}`
       );
-
-      setPendingRequests(response.data || []);
-      setError(null);
-    } catch (error) {
-      if (error.response) {
-        setError(
-          `Server error: ${error.response.data?.message || "Unknown error"}`
-        );
-      } else if (error.request) {
-        setError("Network error. Please check your connection.");
-      } else {
-        setError("Failed to fetch pending requests.");
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    } else if (error.request) {
+      setError("Network error. Please check your connection.");
+    } else {
+      setError("Failed to fetch pending requests.");
     }
-  };
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
 
   const acceptRequest = async (requestId) => {
-    if (!requestId) {
-      Alert.alert("Error", "Invalid request ID");
-      return;
+  if (!requestId) {
+    Alert.alert("Error", "Invalid request ID");
+    return;
+  }
+
+  try {
+    setProcessingRequests((prev) => new Set(prev).add(requestId));
+
+    await apiClient.put(
+      "/api/auth/respond-request",
+      { requestId, action: "accept" },
+      { timeout: 10000 }
+    );
+
+    setPendingRequests((prev) =>
+      prev.filter((req) => req._id !== requestId)
+    );
+
+    Alert.alert("Success", "Connection request accepted!");
+  } catch (error) {
+    let errorMessage = "Failed to accept request. Please try again.";
+
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.request) {
+      errorMessage = "Network error. Please check your connection.";
     }
 
-    try {
-      setProcessingRequests((prev) => new Set(prev).add(requestId));
+    Alert.alert("Error", errorMessage);
+  } finally {
+    setProcessingRequests((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(requestId);
+      return newSet;
+    });
+  }
+};
 
-      const response = await axios.put(
-        `${BASE_URL}/api/auth/respond-request`,
-        { requestId, action: "accept" },
-        { timeout: 10000 }
-      );
+const rejectRequest = async (requestId) => {
+  if (!requestId) {
+    Alert.alert("Error", "Invalid request ID");
+    return;
+  }
 
-      // Remove the accepted request from the list
-      setPendingRequests((prev) => prev.filter((req) => req._id !== requestId));
+  try {
+    setProcessingRequests((prev) => new Set(prev).add(requestId));
 
-      Alert.alert("Success", "Connection request accepted!");
-    } catch (error) {
-      let errorMessage = "Failed to accept request. Please try again.";
+    await apiClient.put(
+      "/api/auth/respond-request",
+      { requestId, action: "reject" },
+      { timeout: 10000 }
+    );
 
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.request) {
-        errorMessage = "Network error. Please check your connection.";
-      }
+    setPendingRequests((prev) =>
+      prev.filter((req) => req._id !== requestId)
+    );
 
-      Alert.alert("Error", errorMessage);
-    } finally {
-      setProcessingRequests((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(requestId);
-        return newSet;
-      });
+    Alert.alert("Success", "Connection request rejected!");
+  } catch (error) {
+    console.error("Error rejecting request:", error);
+
+    let errorMessage = "Failed to reject request. Please try again.";
+
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.request) {
+      errorMessage = "Network error. Please check your connection.";
     }
-  };
 
-  const rejectRequest = async (requestId) => {
-    if (!requestId) {
-      Alert.alert("Error", "Invalid request ID");
-      return;
-    }
-
-    try {
-      setProcessingRequests((prev) => new Set(prev).add(requestId));
-
-      const response = await axios.put(
-        `${BASE_URL}/api/auth/respond-request`,
-        { requestId, action: "reject" },
-        { timeout: 10000 }
-      );
-
-      // Remove the rejected request from the list
-      setPendingRequests((prev) => prev.filter((req) => req._id !== requestId));
-
-      Alert.alert("Success", "Connection request rejected!");
-    } catch (error) {
-      console.error("Error rejecting request:", error);
-      let errorMessage = "Failed to reject request. Please try again.";
-
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.request) {
-        errorMessage = "Network error. Please check your connection.";
-      }
-
-      Alert.alert("Error", errorMessage);
-    } finally {
-      setProcessingRequests((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(requestId);
-        return newSet;
-      });
-    }
-  };
+    Alert.alert("Error", errorMessage);
+  } finally {
+    setProcessingRequests((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(requestId);
+      return newSet;
+    });
+  }
+};
 
   const onRefresh = () => {
     setRefreshing(true);

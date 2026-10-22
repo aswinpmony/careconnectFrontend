@@ -26,8 +26,8 @@ import {
 } from "lucide-react-native";
 import ScreenWrapper from "../Constants/ScreenWrapper";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-import BASE_URL from "../Config/api";
+
+import apiClient from "../Config/apiClient";
 
 const CareGiverDashboard = ({ navigation }) => {
   const route = useRoute();
@@ -63,37 +63,40 @@ const CareGiverDashboard = ({ navigation }) => {
     };
     initializeData();
   }, []);
+ const fetchConnectedElders = async (userId) => {
+  try {
+    setLoading(true);
 
-  const fetchConnectedElders = async (userId) => {
-    try {
-      setLoading(true);
-      const response = await axios.get(
-        `${BASE_URL}/api/auth/linked-users/${userId}`,
-        { timeout: 10000 }
-      );
-      const elders = response.data.filter(
-        (user) => user.userRole === "Elder" || user.role === "Elder"
-      );
-      setParents(elders);
-    } catch (error) {
-      console.error("Error fetching elders:", error);
-      Alert.alert("Error", "Failed to load connected elders");
-    } finally {
-      setLoading(false);
-    }
-  };
+    const response = await apiClient.get(
+      `/api/auth/linked-users/${userId}`,
+      { timeout: 10000 }
+    );
 
-  const fetchPendingRequests = async (userId) => {
-    try {
-      const response = await axios.get(
-        `${BASE_URL}/api/auth/connection-requests/pending/${userId}`,
-        { timeout: 10000 }
-      );
-      setPendingRequests(response.data || []);
-    } catch (error) {
-      console.error("Error fetching pending requests:", error);
-    }
-  };
+    const elders = response.data.filter(
+      (user) => user.userRole === "Elder" || user.role === "Elder"
+    );
+
+    setParents(elders);
+  } catch (error) {
+    console.error("Error fetching elders:", error);
+    Alert.alert("Error", "Failed to load connected elders");
+  } finally {
+    setLoading(false);
+  }
+};
+
+const fetchPendingRequests = async (userId) => {
+  try {
+    const response = await apiClient.get(
+      `/api/auth/connection-requests/pending/${userId}`,
+      { timeout: 10000 }
+    );
+
+    setPendingRequests(response.data || []);
+  } catch (error) {
+    console.error("Error fetching pending requests:", error);
+  }
+};
 
   const onRefresh = async () => {
     setRefreshing(true);

@@ -7,65 +7,71 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from "react-native";
-import BASE_URL from "../Config/api";
+import apiClient from "../Config/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const UserSearchScreen = ({ navigation, route }) => {
-  const { userRole } = route.params;
+const UserSearchScreen = ({ navigation }) => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const handleSearch = async (text) => {
-    console.log("🔍 Search triggered with text:", text);
-    console.log("👤 Current userRole (who is searching):", userRole);
-
     setQuery(text);
+    setError("");
 
-    if (!text.trim()) {
-      console.log("ℹ️ Empty text, clearing results");
+    const searchText = text.trim();
+
+    if (!searchText) {
       setResults([]);
       return;
     }
 
     setLoading(true);
+
     try {
       const currentUserId = await AsyncStorage.getItem("userID");
-      console.log("🆔 Logged-in user ID:", currentUserId);
 
       if (!currentUserId) {
-        console.warn("⚠️ No logged-in user ID found");
-        setLoading(false);
+        setResults([]);
+        setError("Please log in again.");
         return;
       }
 
-      const apiURL = `${BASE_URL}/api/auth/search-users?q=${encodeURIComponent(
-        text.trim()
-      )}&userId=${currentUserId}`;
-      console.log("🌐 Calling API:", apiURL);
-
-      const response = await fetch(apiURL);
-
-      console.log("📡 API status:", response.status);
-
-      if (!response.ok) throw new Error("Failed to fetch search results");
-
-      const data = await response.json();
-      console.log("📥 Raw data from API:", data);
-
-      const filteredResults = (data || []).filter((u) => {
-        console.log(`➡️ Checking user: ${u.fullName}, role: ${u.role}`);
-        return u.role !== userRole;
+      const response = await apiClient.get("/api/auth/search-users", {
+        params: {
+          q: searchText,
+          userId: currentUserId,
+        },
+        timeout: 10000,
       });
 
+      const users = Array.isArray(response.data) ? response.data : [];
+
       console.log(
-        "📤 Filtered results (after removing same role):",
-        filteredResults
+        "Search results:",
+        users.map((user) => ({
+          id: user._id,
+          name: user.fullName,
+          role: user.role,
+        }))
       );
 
-      setResults(filteredResults);
+      setResults(users);
     } catch (err) {
+      console.error(
+        "Search error:",
+        err.response?.status,
+        err.response?.data || err.message
+      );
+
       setResults([]);
+      setError(
+        err.response?.data?.message ||
+          "Unable to search users. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -86,11 +92,20 @@ const UserSearchScreen = ({ navigation, route }) => {
             />
           ) : (
             <Text style={styles.avatarText}>
-              {item.fullName?.charAt(0)?.toUpperCase() || "?"}
+              {item.fullName?.trim()?.charAt(0)?.toUpperCase() || "?"}
             </Text>
           )}
         </View>
-        <Text style={styles.userName}>{item.fullName || "No Name"}</Text>
+
+        <View style={styles.userInfo}>
+          <Text style={styles.userName}>
+            {item.fullName?.trim() || "Name unavailable"}
+          </Text>
+
+          <Text style={styles.userRole}>
+            {item.role === "Elder" ? "Elder" : "Caregiver"}
+          </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -99,18 +114,24 @@ const UserSearchScreen = ({ navigation, route }) => {
     <View style={styles.container}>
       <TextInput
         style={styles.input}
-        placeholder="Search here"
+        placeholder="Search by name"
         value={query}
         onChangeText={handleSearch}
+        autoCapitalize="words"
       />
 
       {loading ? (
-        <Text>Loading...</Text>
+        <ActivityIndicator size="large" color="#2563EB" />
+      ) : error ? (
+        <Text style={styles.message}>{error}</Text>
+      ) : query.trim() && results.length === 0 ? (
+        <Text style={styles.message}>No matching users found.</Text>
       ) : (
         <FlatList
           data={results}
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
+          keyboardShouldPersistTaps="handled"
         />
       )}
     </View>
@@ -132,6 +153,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     backgroundColor: "#fff",
     marginBottom: 20,
+    color: "#111827",
   },
   card: {
     backgroundColor: "#fff",
@@ -144,28 +166,44 @@ const styles = StyleSheet.create({
   cardContent: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#ccc",
+    backgroundColor: "#2563EB",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    marginRight: 12,
+    overflow: "hidden",
   },
   avatarImage: {
     width: 40,
     height: 40,
-    borderRadius: 20,
   },
   avatarText: {
     fontWeight: "bold",
     fontSize: 18,
     color: "#fff",
   },
+  userInfo: {
+    flex: 1,
+  },
   userName: {
     fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  userRole: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginTop: 4,
+  },
+  message: {
+    textAlign: "center",
+    marginTop: 20,
+    color: "#6B7280",
   },
 });
 
