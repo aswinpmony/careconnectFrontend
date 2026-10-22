@@ -13,8 +13,7 @@ import {
 } from "react-native";
 import { scale, verticalScale, moderateScale } from "react-native-size-matters";
 import { Lock, Eye, EyeOff, ArrowLeft } from "lucide-react-native";
-import axios from "axios";
-import BASE_URL from "../Config/api";
+import apiClient from "../Config/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ScreenWrapper from "../Constants/ScreenWrapper";
 
@@ -76,15 +75,14 @@ const ChangePassword = ({ navigation }) => {
         navigation.replace("Login");
         return;
       }
-
-      const response = await axios.put(
-        `${BASE_URL}/api/auth/change-password/${userId}`,
-        {
-          currentPassword: currentPassword.trim(),
-          newPassword: newPassword.trim(),
-        },
-        { timeout: 10000 }
-      );
+const response = await apiClient.put(
+  `/api/auth/change-password/${userId}`,
+  {
+    currentPassword: currentPassword.trim(),
+    newPassword: newPassword.trim(),
+  },
+  { timeout: 10000 }
+);
 
       if (response.status === 200) {
         Alert.alert(

@@ -11,9 +11,8 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { scale, verticalScale, moderateScale } from "react-native-size-matters";
-import axios from "axios";
-import BASE_URL from "../Config/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import apiClient from "../Config/apiClient";
 
 const LogMyHealth = () => {
   const [bp, setBp] = useState("");
@@ -31,43 +30,47 @@ const LogMyHealth = () => {
       setDate(selectedDate);
     }
   };
+const handleSubmit = async () => {
+  if (!bp || !sugar || !cholesterol) {
+    Alert.alert("Missing Info", "Please fill in all the health fields.");
+    return;
+  }
 
-  const handleSubmit = async () => {
-    if (!bp || !sugar || !cholesterol) {
-      Alert.alert("Missing Info", "Please fill in all the health fields.");
-      return;
-    }
-    const userId = await AsyncStorage.getItem("userID");
+  const userId = await AsyncStorage.getItem("userID");
 
-    const data = {
-      userId: userId, // must exist
-      date: date.toISOString(),
-      bloodPressure: bp,
-      sugarLevel: sugar,
-      cholesterol,
-      notes,
-    };
+  if (!userId) {
+    Alert.alert("Session Expired", "Please log in again.");
+    return;
+  }
 
-    try {
-      const res = await axios.post(`${BASE_URL}/api/auth/add-health-log`, data);
-
-      if (res.status === 200 || res.data.success) {
-        Alert.alert("✅ Success", "Health log created successfully");
-
-        // Clear inputs
-        setBp("");
-        setSugar("");
-        setCholesterol("");
-        setNotes("");
-        setDate(new Date());
-      } else {
-        Alert.alert("⚠️ Failed", "Something went wrong");
-      }
-    } catch (error) {
-      Alert.alert("❌ Error", "Could not submit health data");
-    }
+  const data = {
+    userId,
+    date: date.toISOString(),
+    bloodPressure: bp,
+    sugarLevel: sugar,
+    cholesterol,
+    notes,
   };
 
+  try {
+    const res = await apiClient.post("/api/auth/add-health-log", data);
+
+    if (res.status === 200 || res.data.success) {
+      Alert.alert("Success", "Health log created successfully");
+
+      setBp("");
+      setSugar("");
+      setCholesterol("");
+      setNotes("");
+      setDate(new Date());
+    } else {
+      Alert.alert("Failed", "Something went wrong");
+    }
+  } catch (error) {
+    console.error("Health log submission error:", error.response?.data || error.message);
+    Alert.alert("Error", "Could not submit health data");
+  }
+};
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Log My Health</Text>

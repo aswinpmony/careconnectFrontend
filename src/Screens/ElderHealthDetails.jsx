@@ -12,8 +12,8 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { scale, verticalScale, moderateScale } from "react-native-size-matters";
-import axios from "axios";
-import BASE_URL from "../Config/api";
+import apiClient from "../Config/apiClient";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ScreenWrapper from "../Constants/ScreenWrapper";
 const { width } = Dimensions.get("window");
@@ -30,39 +30,41 @@ const ElderHealthDetails = ({ route, navigation }) => {
 
   // Fetch elder details
   const fetchElderDetails = async () => {
-    try {
-      setLoading(true);
-      const caregiverId = await AsyncStorage.getItem("userID");
+  try {
+    setLoading(true);
 
-      if (!caregiverId) {
-        Alert.alert("Error", "Please log in again");
-        navigation.goBack();
-        return;
-      }
+    const caregiverId = await AsyncStorage.getItem("userID");
 
-      const response = await axios.get(
-        `${BASE_URL}/api/auth/get-connected-elder/${caregiverId}/${elderId}`,
-        { timeout: 10000 }
-      );
-
-      const { elderData } = response.data;
-      setElderProfile(elderData);
-      setHealthLogs(elderData.healthLogs || []);
-      setStatistics(elderData.statistics || {});
-    } catch (error) {
-      console.error("Error fetching elder details:", error);
-
-      if (error.response?.status === 403) {
-        Alert.alert("Access Denied", "You are not connected to this elder", [
-          { text: "OK", onPress: () => navigation.goBack() },
-        ]);
-      } else {
-        Alert.alert("Error", "Unable to fetch elder data");
-      }
-    } finally {
-      setLoading(false);
+    if (!caregiverId) {
+      Alert.alert("Error", "Please log in again");
+      navigation.goBack();
+      return;
     }
-  };
+
+    const response = await apiClient.get(
+      `/api/auth/get-connected-elder/${caregiverId}/${elderId}`,
+      { timeout: 10000 }
+    );
+
+    const { elderData } = response.data;
+
+    setElderProfile(elderData);
+    setHealthLogs(elderData.healthLogs || []);
+    setStatistics(elderData.statistics || {});
+  } catch (error) {
+    console.error("Error fetching elder details:", error);
+
+    if (error.response?.status === 403) {
+      Alert.alert("Access Denied", "You are not connected to this elder", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
+    } else {
+      Alert.alert("Error", "Unable to fetch elder data");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchElderDetails();

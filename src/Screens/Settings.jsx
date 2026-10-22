@@ -25,10 +25,10 @@ import {
   Lock,
   Edit3,
 } from "lucide-react-native";
-import axios from "axios";
-import BASE_URL from "../Config/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ScreenWrapper from "../Constants/ScreenWrapper";
+import apiClient from "../Config/apiClient";
+
 
 const Settings = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
@@ -53,10 +53,10 @@ const Settings = ({ navigation }) => {
   useEffect(() => {
     fetchUserData();
   }, []);
-
   const fetchUserData = async () => {
     try {
       setLoading(true);
+
       const userIdFromStorage = await AsyncStorage.getItem("userID");
 
       if (!userIdFromStorage) {
@@ -67,8 +67,8 @@ const Settings = ({ navigation }) => {
 
       setUserId(userIdFromStorage);
 
-      const response = await axios.get(
-        `${BASE_URL}/api/auth/get-profile-data/${userIdFromStorage}`,
+      const response = await apiClient.get(
+        `/api/auth/get-profile-data/${userIdFromStorage}`,
         { timeout: 10000 }
       );
 
@@ -124,8 +124,8 @@ const Settings = ({ navigation }) => {
         healthIssues: healthIssues.trim(),
       };
 
-      const response = await axios.put(
-        `${BASE_URL}/api/auth/update-profile/${userId}`,
+      const response = await apiClient.put(
+        `/api/auth/update-profile/${userId}`,
         updateData,
         { timeout: 10000 }
       );

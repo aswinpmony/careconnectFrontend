@@ -11,10 +11,9 @@ import {
 } from "react-native";
 import { scale, verticalScale, moderateScale } from "react-native-size-matters";
 import { Phone, Video, MessageCircle, UserMinus } from "lucide-react-native";
-import axios from "axios";
-import BASE_URL from "../Config/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ScreenWrapper from "../Constants/ScreenWrapper";
+import apiClient from "../Config/apiClient";
 
 const MyConnections = ({ navigation }) => {
   const [connections, setConnections] = useState([]);
@@ -45,35 +44,36 @@ const MyConnections = ({ navigation }) => {
       setLoading(false);
     }
   };
+const fetchConnections = async (userId) => {
+  if (!userId) return;
 
-  const fetchConnections = async (userId) => {
-    if (!userId) return;
+  try {
+    setLoading(true);
+    setError(null);
 
-    try {
-      setLoading(true);
-      setError(null);
+    const response = await apiClient.get(
+      `/api/auth/linked-users/${userId}`,
+      { timeout: 10000 }
+    );
 
-      const response = await axios.get(
-        `${BASE_URL}/api/auth/linked-users/${userId}`,
-        { timeout: 10000 }
+    setConnections(response.data || []);
+  } catch (err) {
+    console.error("Error fetching connections", err);
+
+    if (err.response) {
+      setError(
+        `Server error: ${err.response.data?.message || "Unknown error"}`
       );
-      setConnections(response.data || []);
-    } catch (err) {
-      console.error("Error fetching connections", err);
-      if (err.response) {
-        setError(
-          `Server error: ${err.response.data?.message || "Unknown error"}`
-        );
-      } else if (err.request) {
-        setError("Network error. Please check your connection.");
-      } else {
-        setError("Failed to load connections. Please try again.");
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    } else if (err.request) {
+      setError("Network error. Please check your connection.");
+    } else {
+      setError("Failed to load connections. Please try again.");
     }
-  };
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
 
   const onRefresh = () => {
     if (loggedInUserId) {
@@ -109,19 +109,16 @@ const MyConnections = ({ navigation }) => {
       console.log("Removing connection:", { userId: userData, connectionId });
 
       // Make the API call
-      const response = await axios.delete(
-        `${BASE_URL}/api/auth/remove-connection`,
-        {
-          data: {
-            userId: userData,
-            connectionId: connectionId,
-          },
-          headers: {
-            "Content-Type": "application/json",
-          },
-          timeout: 10000,
-        }
-      );
+      const response = await apiClient.delete(
+  "/api/auth/remove-connection",
+  {
+    data: {
+      userId: userData,
+      connectionId: connectionId,
+    },
+    timeout: 10000,
+  }
+);
 
       console.log("Remove connection response:", response.data);
 
